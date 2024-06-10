@@ -3,80 +3,100 @@ import numpy as np
 import pandas as pd
 import glob
 import seaborn as sns
+import importlib
+import helpers
+importlib.reload(helpers)
+from helpers import check_if_folder
+
 
 
 substrate_palette = {1: sns.color_palette()[0], 2: sns.color_palette()[1], 3: sns.color_palette()[2], 
                      4: sns.color_palette()[3], 5: sns.color_palette()[4], 6: sns.color_palette()[5]}
 
-position_dashes = {1: (5, 0), 2: (6, 4), 3: (3, 1), 4: (2, 1), 5: (4, 2)}
+position_dashes = {'A': (5, 0), 'B': (6, 4), 'C': (3, 1), 'D': (2, 1), 'E': (4, 2)}
 
-def read_characteristic_data(exp_date):
+def read_characteristic_data(name):
     '''The purpose of this program is to extract the efficiency, V_oc, I_sc, FF, etc'''
     df = pd.DataFrame()
-    for file in glob.glob('Data/IV_data/' + exp_date + '/*'):
+    for file in glob.glob('Data/IV_data/' + name + '/*.txt'):
         tempdf = pd.read_csv(file, header = 4, skipfooter = 102, sep = '\t') #Note: CHECK THE NUMBER OF POINTS. skipfooter should be the # of points (rows) plus 1. Add this in next time
         #We can make a dataframe of just the characteristic data, which is in the 'header'. 
         # However the IV data is in a different dimension and should be saved separately
         o = file.split('_')[-2].split('/')[-1]
         tempdf['name'] = o
         df = pd.concat([tempdf, df])
-        df['substrate'] = df.apply(lambda row: row['name'][-3], axis = 1) #Want color based on substrate
+    df['substrate'] = df.apply(lambda row: row['name'][-3], axis = 1) #Want color based on substrate
     df['position'] = df.apply(lambda row: row['name'][-1], axis = 1)#Want style based on sample position on substrate
+    df['batch'] = df.apply (lambda row: row['name'][-5], axis = 1)
     df = df.sort_values(by = ['substrate', 'position'])
     print(df)
     df.index = range(len(df))
     return df
 
 
-def save_characteristic_data(exp_date):
+def save_characteristic_data(name):
     '''The purpose of this function is to store the IV data as a single csv file.
     This means that the program will save time as it does not need to recreate the
     df from scratch every time'''
-    df = read_characteristic_data(exp_date)
-    df.to_csv('Data/IV_data/characteristic_data_csvs/' + exp_date + '_char_data.csv', index = False)#make sure you change the date and folder of these things
+    df = read_characteristic_data(name)
+    df.to_csv('Data/IV_data/characteristic_data_csvs/' + name + '_char_data.csv', index = False)#make sure you change the date and folder of these things
 
 def plot_char_data(path, fig_o_merit):
     '''The purpose of this function is to plot the many points
-    The fig_o_merit can be 'Voc V', 'Isc A', 'Fill Factor', 'Efficiency', etc'''
+    The fig_o_merit can be 'Voc V', 'Isc A', 'Jsc mA_cm2', 'Fill Factor', 'Efficiency', etc'''
+    plt.rcParams["axes.labelsize"] = 16
+    plt.rcParams['xtick.labelsize']=10
+    plt.rcParams['ytick.labelsize']=10
+    
     df = pd.read_csv(path)
+    df['Jsc mA_cm2'] = df['Jsc mA/cm2']
     o = path.split('/')[-1].split('_')[0]
-    ax = sns.catplot(x = 'substrate', y = fig_o_merit, hue = 'position', data = df)
+    ax = sns.catplot(x = 'substrate', y = fig_o_merit, hue = 'position', data = df, s = 10)
+    sns.despine(fig=None, ax=None, top=False, right=False, left=False, bottom=False)
     ax.set(title = fig_o_merit + ' by position')
-    plt.savefig('Figures/char_data/'+ o + '/' + fig_o_merit + '.pdf')
+
+    savepath = 'Figures/char_data/'+ o
+    check_if_folder(savepath)
+    plt.tight_layout()
+    plt.savefig(savepath + '/' + fig_o_merit + '.pdf')
     plt.close('all')
 
 def plot_many_char_data(path):
     plot_char_data(path, 'Voc V')
-    plot_char_data(path, 'Isc A')
+
     plot_char_data(path, "Efficiency")
     plot_char_data(path, 'Fill Factor')
+    plot_char_data(path, 'Jsc mA_cm2') #
 
 
-def read_IV_data(exp_date):
+def read_IV_data(name):
     df = pd.DataFrame()
-    for file in glob.glob('Data/IV_data/' + exp_date + '/*'):
+    for file in glob.glob('Data/IV_data/' + name + '/*.txt'):
         tempdf = pd.read_csv(file, header = 6, sep = '\t')
         o = file.split("_")[-2].split('/')[-1]
+        tempdf['Jmeas (mA/cm2)'] = tempdf.apply(lambda row: row['Imeas']/0.077 * 1000, axis = 1) #Dividing by the area (0.077 cm^2) gives the current density in A/cm^2, and multiplying by 1000 gives the current density in mA/cm^2
         tempdf['name'] = o
         df = pd.concat([tempdf, df])
     df['substrate'] = df.apply(lambda row: row['name'][-3], axis = 1) #Want color based on substrate
     df['position'] = df.apply(lambda row: row['name'][-1], axis = 1)#Want style based on sample position on substrate
+    df['batch']= df.apply(lambda row: row['name'][-5], axis = 1)
+    
     df = df.sort_values(by = ['substrate', 'position'])
     print(df)
     df.index = range(len(df))
     return df
 
-def save_IV_data(exp_date):
+def save_IV_data(name):
     '''The purpose of this function is to store the IV data as a single csv file.
     This means that the program will save time as it does not need to recreate the
     df from scratch every time'''
-    df = read_IV_data(exp_date)
-    df.to_csv('Data/IV_data/IV_csvs/' + exp_date + '_all_IV.csv', index = False)
+    df = read_IV_data(name)
+    df.to_csv('Data/IV_data/IV_csvs/' + name + '_all_IV.csv', index = False)
 
 
 def plot_IV_data_all(path):
     df = pd.read_csv(path)
-    o = path.split('/')[-1].split('_')[0]
+    o = path.split('/')[-1].split('_')[0] + '_' + path.split('/')[-1].split('_')[1]
     df['Imeas'] *= 1000
     
     
@@ -84,9 +104,13 @@ def plot_IV_data_all(path):
     # fig, ax = plt.subplots()
     # ax.plot(df['Vmeas'], df['Imeas'], color = df['color'])
     
-    ax = sns.lineplot(x = 'Vmeas', y = 'Imeas', hue = 'substrate', style = 'position', data = df, palette=substrate_palette, dashes = position_dashes)
-    ax.set(xlabel = 'Voltage (V)', ylabel = 'Current (mA)', title = 'All IV curves')
-    plt.savefig('Figures/' + o + '/all_IVdata.pdf')
+    ax = sns.lineplot(x = 'Vmeas', y = 'Jmeas (mA/cm2)', hue = 'substrate', style = 'position', data = df, palette=substrate_palette, dashes = position_dashes)
+    ax.set(xlabel = 'Voltage (V)', ylabel = 'Current density (mA/cm2)', title = 'All IV curves')
+    
+    savepath = 'Figures/IV_data/' + o 
+    check_if_folder(savepath )
+
+    plt.savefig(savepath+ '/all_IVdata.pdf')
     plt.close('all')
 
 
