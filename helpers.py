@@ -9,3 +9,4 @@ def check_if_folder(f_path):
         print('Making a folder with the path ' + f'{f_path}')
 
     return
+
