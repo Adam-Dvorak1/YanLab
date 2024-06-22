@@ -5,8 +5,9 @@ import glob
 import seaborn as sns
 import importlib
 import helpers
+import os
 importlib.reload(helpers)
-from helpers import check_if_folder
+from helpers import check_if_folder, remove_result_tables, create_dropbox_path
 
 
 
@@ -24,22 +25,31 @@ def read_characteristic_data(name):
         # However the IV data is in a different dimension and should be saved separately
         o = file.split('_')[-2].split('/')[-1]
         tempdf['name'] = o
+        tempdf['Experiment'] = file[file.find("(")+1:file.find(")")] #We want to make another category column, which experiment we did
         df = pd.concat([tempdf, df])
-    df['substrate'] = df.apply(lambda row: row['name'][-3], axis = 1) #Want color based on substrate
+    df['substrate'] = df.apply(lambda row: row['name'][:-2], axis = 1) #Want color based on substrate. In 
     df['position'] = df.apply(lambda row: row['name'][-1], axis = 1)#Want style based on sample position on substrate
-    df['batch'] = df.apply (lambda row: row['name'][-5], axis = 1)
-    df = df.sort_values(by = ['substrate', 'position'])
+    # df['batch'] = df.apply (lambda row: row['name'][-5], axis = 1) #
+    df = df.sort_values(by = ['substrate', 'position', 'Efficiency']) #We sort by substrate and position to make it orderly. We sort by efficiency to always keep the most efficient, in the next line
+    df = df.drop_duplicates(subset = ['substrate', 'position'], keep = 'last')
     print(df)
     df.index = range(len(df))
     return df
 
 
 def save_characteristic_data(name):
-    '''The purpose of this function is to store the IV data as a single csv file.
+    '''The purpose of this function is to store the IV data (figures of merit) as a single csv file.
     This means that the program will save time as it does not need to recreate the
     df from scratch every time'''
+    remove_result_tables(name)# The purpose of this is that sometimes we save results tables, but I want them in their own folder. I will create my own
     df = read_characteristic_data(name)
-    df.to_csv('Data/IV_data/characteristic_data_csvs/' + name + '_char_data.csv', index = False)#make sure you change the date and folder of these things
+
+    chardata_path = 'Data/IV_data/characteristic_data_csvs/' + name + '_char_data.csv'
+    df.to_csv(chardata_path, index = False)#make sure you change the date and folder of these things
+
+    
+    # dropboxpath = create_dropbox_path(name) #Do not use this unless I receive access to create access key for dropbox
+    # df.to_csv(dropboxpath + '/' + 'figs_o_merit.csv') #Though it might be confusing to save twice, I also want to save directly to the dropbox folder
 
 def plot_char_data(path, fig_o_merit):
     '''The purpose of this function is to plot the many points
