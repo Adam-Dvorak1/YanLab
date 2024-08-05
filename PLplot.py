@@ -13,6 +13,9 @@ from helpers import check_if_folder
 '''The purpose  is to assemble the PL data into tables which can then be 
 turned into plots on origin. Each column will have a name. I want a table for all the data,
 and for each condition'''
+
+experimental_conditions = {9: '5000 rpm', 10: '5000 rpm', 11: '7000 rpm', 12: '7000 rpm', 13: '8000 rpm', 14: '8000 rpm',15: '9000 rpm', 16: '9000 rpm',}
+
 def read_PL_file(name):
     '''This will read a PL file'''
     df = pd.DataFrame()
@@ -37,7 +40,11 @@ def read_PL_files(name):
         tempdf['normalized signal'] = tempdf['signal strength'] / tempdf['signal strength'].max()
         tempdf['name'] = sample
         tempdf['sample number'] = sample[-2:]
+        tempdf['sample number'] = pd.to_numeric(tempdf['sample number'])
+        tempdf['exp condition'] = tempdf['sample number'].map(experimental_conditions)
         df = pd.concat([tempdf, df])
+    
+    df = df.sort_values('sample number')
 
     return df
 
